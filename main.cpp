@@ -218,13 +218,21 @@ void drawBrick(const Brick& b) {
     SDL_RenderFillRect(renderer, &b.rect);
 
     // 顶部高亮
-    SDL_Color hl = {std::min(255, c.r + 60), std::min(255, c.g + 60), std::min(255, c.b + 60), 255};
+    auto clamp_add = [](Uint8 v, int add) -> Uint8 {
+        int r = v + add;
+        return (Uint8)(r > 255 ? 255 : r);
+    };
+    auto clamp_sub = [](Uint8 v, int sub) -> Uint8 {
+        int r = (int)v - sub;
+        return (Uint8)(r < 0 ? 0 : r);
+    };
+    SDL_Color hl = {clamp_add(c.r, 60), clamp_add(c.g, 60), clamp_add(c.b, 60), 255};
     SDL_Rect top = {b.rect.x, b.rect.y, b.rect.w, b.rect.h / 3};
     SDL_SetRenderDrawColor(renderer, hl.r, hl.g, hl.b, hl.a);
     SDL_RenderFillRect(renderer, &top);
 
     // 底部阴影
-    SDL_Color sh = {std::max(0, c.r - 50), std::max(0, c.g - 50), std::max(0, c.b - 50), 255};
+    SDL_Color sh = {clamp_sub(c.r, 50), clamp_sub(c.g, 50), clamp_sub(c.b, 50), 255};
     SDL_Rect bot = {b.rect.x, b.rect.y + b.rect.h * 2 / 3, b.rect.w, b.rect.h / 3};
     SDL_SetRenderDrawColor(renderer, sh.r, sh.g, sh.b, sh.a);
     SDL_RenderFillRect(renderer, &bot);

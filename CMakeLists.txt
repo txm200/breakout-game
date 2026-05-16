@@ -10,8 +10,20 @@ find_package(SDL2_ttf REQUIRED)
 
 add_executable(breakout main.cpp)
 
-target_include_directories(breakout PRIVATE ${SDL2_INCLUDE_DIRS} ${SDL2_TTF_INCLUDE_DIRS})
-target_link_libraries(breakout ${SDL2_LIBRARIES} ${SDL2_TTF_LIBRARIES})
+target_include_directories(breakout PRIVATE
+    ${SDL2_INCLUDE_DIRS}
+    ${SDL2_TTF_INCLUDE_DIRS}
+)
+
+target_link_libraries(breakout
+    ${SDL2_LIBRARIES}
+    ${SDL2_TTF_LIBRARIES}
+)
+
+# 显式链接 SDL2_ttf (Linux 需要)
+if(UNIX)
+    target_link_libraries(breakout SDL2_ttf)
+endif()
 
 # Windows 特殊配置
 if(WIN32)
