@@ -1,0 +1,128 @@
+name: 编译打砖块游戏
+
+on:
+  push:
+    branches: [ "master", "main" ]
+    paths-ignore:
+      - '**.md'
+  pull_request:
+    branches: [ "master", "main" ]
+  workflow_dispatch:  # 支持手动触发
+
+jobs:
+  build:
+    name: ${{ matrix.config.name }}
+    runs-on: ${{ matrix.config.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - { name: "Windows (MSVC)",   os: windows-latest, cc: cl,     cxx: cl }
+          - { name: "Linux",            os: ubuntu-latest,  cc: gcc,    cxx: g++ }
+          - { name: "macOS",            os: macos-latest,   cc: clang,  cxx: clang++ }
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      # ===== Linux 依赖 =====
+      - name: 安装 Linux 依赖
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            libsdl2-dev \
+            libsdl2-ttf-dev \
+            cmake \
+            ninja-build
+
+      # ===== macOS 依赖 =====
+      - name: 安装 macOS 依赖
+        if: runner.os == 'macOS'
+        run: |
+          brew update
+          brew install sdl2 sdl2_ttf cmake ninja
+
+      # ===== Windows 依赖 (vcpkg) =====
+      - name: 安装 Windows 依赖 (vcpkg)
+        if: runner.os == 'Windows'
+        run: |
+          # 使用 vcpkg 安装 SDL2 和 SDL2_ttf
+          git clone --depth=1 https://github.com/Microsoft/vcpkg.git C:\vcpkg
+          C:\vcpkg\bootstrap-vcpkg.bat -disableMetrics
+          C:\vcpkg\vcpkg install sdl2 sdl2-ttf --triplet x64-windows
+        shell: cmd
+
+      # ===== 配置 CMake =====
+      - name: 配置 CMake
+        run: |
+          cmake -B build -G Ninja `
+            -DCMAKE_BUILD_TYPE=Release `
+            ${{ runner.os == 'Windows' && '-DCMAKE_TOOLCHAIN_FILE=C:\vcpkg\scripts\buildsystems\vcpkg.cmake' || '' }}
+        shell: pwsh
+
+      # ===== 编译 =====
+      - name: 编译
+        run: cmake --build build --config Release
+
+      # ===== 重命名产物 =====
+      - name: 重命名产物
+        shell: pwsh
+        run: |
+          $os = "${{ runner.os }}".ToLower()
+          if ($os -eq "windows") {
+            Copy-Item build/Release/breakout.exe "breakout-$os-x64.exe"
+          } elseif ($os -eq "macos") {
+            Copy-Item build/breakout "breakout-$os-x64"
+          } else {
+            Copy-Item build/breakout "breakout-$os-x64"
+          }
+
+      # ===== 上传产物 =====
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: breakout-${{ runner.os }}
+          path: |
+            breakout-*.exe
+            breakout-*-x64
+          if-no-files-found: warn
+
+  # ===== 发布 Release =====
+  release:
+    name: 发布 Release
+    needs: build
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: 下载所有构建产物
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: 创建 Release 标签
+        id: tag
+        run: |
+          echo "tag=v$(date +'%Y%m%d.%H%M')" >> $GITHUB_OUTPUT
+
+      - name: 创建 Release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ steps.tag.outputs.tag }}
+          name: "打砖块游戏 v${{ github.run_number }}"
+          body: |
+            ## 打砖块游戏 - 自动构建
+
+            - 提交: ${{ github.sha }}
+            - 构建时间: ${{ github.event.head_commit.timestamp || 'latest' }}
+
+            ### 下载说明
+            - `breakout-Windows-x64.exe` → Windows 直接运行
+            - `breakout-Linux-x64` → Linux 可执行文件
+            - `breakout-macOS-x64` → macOS 可执行文件
+          artifacts: "artifacts/**/*"
+          makeLatest: true
+          prerelease: false

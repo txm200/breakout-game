@@ -17,3 +17,6 @@ target_link_libraries(breakout ${SDL2_LIBRARIES} ${SDL2_TTF_LIBRARIES})
 if(WIN32)
     set_target_properties(breakout PROPERTIES WIN32_EXECUTABLE TRUE)
 endif()
+
+# 安装规则
+install(TARGETS breakout DESTINATION bin)
