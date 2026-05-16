@@ -47,18 +47,18 @@ jobs:
       - name: 安装 Windows 依赖 (vcpkg)
         if: runner.os == 'Windows'
         run: |
-          # 使用 vcpkg 安装 SDL2 和 SDL2_ttf
           git clone --depth=1 https://github.com/Microsoft/vcpkg.git C:\vcpkg
           C:\vcpkg\bootstrap-vcpkg.bat -disableMetrics
-          C:\vcpkg\vcpkg install sdl2 sdl2-ttf --triplet x64-windows
+          C:\vcpkg\vcpkg install sdl2:x64-windows sdl2-ttf:x64-windows
         shell: cmd
 
       # ===== 配置 CMake =====
       - name: 配置 CMake
         run: |
+          $vcpkg = "${{ runner.os == 'Windows' && '-DCMAKE_TOOLCHAIN_FILE=C:\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows' || '' }}"
           cmake -B build -G Ninja `
             -DCMAKE_BUILD_TYPE=Release `
-            ${{ runner.os == 'Windows' && '-DCMAKE_TOOLCHAIN_FILE=C:\vcpkg\scripts\buildsystems\vcpkg.cmake' || '' }}
+            $vcpkg
         shell: pwsh
 
       # ===== 编译 =====
